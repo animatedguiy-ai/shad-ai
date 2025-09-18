@@ -1,0 +1,90 @@
+// server.js
+import express from "express";
+import fetch from "node-fetch";
+
+const app = express();
+app.use(express.json());
+
+const API_KEY = process.env.DEEPSEEK_API_KEY || "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";
+const API_URL = "https://api.deepseek.com/v1/chat/completions";
+
+// Serve frontend UI
+app.get("/", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Shad AI</title>
+      <style>
+        body { font-family: Arial, sans-serif; background:#0a0a0a; color:white; display:flex; flex-direction:column; align-items:center; }
+        #chat { width: 90%; max-width: 600px; height: 70vh; border:1px solid #444; padding:10px; overflow-y:auto; margin-bottom:10px; background:#111; border-radius:10px; }
+        .msg { margin:5px 0; padding:8px 12px; border-radius:8px; max-width:80%; }
+        .user { background:#0ff; color:black; align-self:flex-end; }
+        .bot { background:#222; border:1px solid #0ff; }
+        #inputBox { width:90%; max-width:600px; display:flex; }
+        #inputBox input { flex:1; padding:10px; border:none; border-radius:8px 0 0 8px; }
+        #inputBox button { background:#0ff; border:none; padding:10px 20px; border-radius:0 8px 8px 0; cursor:pointer; }
+      </style>
+    </head>
+    <body>
+      <h2>🤖 Shad AI Chatbot</h2>
+      <div id="chat"></div>
+      <div id="inputBox">
+        <input id="msg" placeholder="Type your message..." />
+        <button onclick="sendMsg()">Send</button>
+      </div>
+      <script>
+        async function sendMsg() {
+          const msg = document.getElementById("msg").value;
+          if (!msg) return;
+          const chat = document.getElementById("chat");
+          chat.innerHTML += '<div class="msg user">'+msg+'</div>';
+          document.getElementById("msg").value = "";
+
+          const res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: msg })
+          });
+          const data = await res.json();
+          chat.innerHTML += '<div class="msg bot">'+data.reply+'</div>';
+          chat.scrollTop = chat.scrollHeight;
+        }
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// Chat API endpoint
+app.post("/api/chat", async (req, res) => {
+  const { message } = req.body;
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": \`Bearer \${API_KEY}\`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: "You are Shad AI, a helpful and friendly assistant." },
+          { role: "user", content: message }
+        ],
+      }),
+    });
+
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content || "⚠️ No reply";
+
+    res.json({ reply });
+  } catch (err) {
+    res.json({ reply: "⚠️ Error: " + err.message });
+  }
+});
+
+// Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(\`✅ Shad AI running on port \${PORT}\`));
